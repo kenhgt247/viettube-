@@ -1,0 +1,44 @@
+name: Build parked-video beta (no stable release)
+
+on:
+  push:
+    branches:
+      - feature/viettube-parked-video
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Check parked-video AndroidManifest
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          m = ET.parse('app/src/main/AndroidManifest.xml').getroot()
+          ns='{http://schemas.android.com/apk/res/android}'
+          app=m.find('application')
+          assert app.attrib.get(ns+'appCategory') == 'video'
+          activity=app.find('activity')
+          categories=[c.attrib[ns+'name'] for i in activity.findall('intent-filter') for c in i.findall('category')]
+          assert 'android.intent.category.CAR_LAUNCHER' in categories
+          assert not app.findall('service'), 'Navigation service should not be exposed'
+          print('Parked video declaration: OK (not proof of Android Auto eligibility)')
+          PY
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Upload beta APK as run artifact (never overwrites latest)
+        uses: actions/upload-artifact@v4
+        with:
+          name: viettube-parked-video-beta
+          path: app/build/outputs/apk/debug/app-debug.apk
