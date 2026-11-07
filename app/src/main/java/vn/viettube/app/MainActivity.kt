@@ -1,92 +1,173 @@
 package vn.viettube.app
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
 
-/** Phone screen: setup steps, YouTube sign-in, and the car-speed permission. */
+/**
+ * Phone and future eligible parked-host browser.
+ * CAR_LAUNCHER does not bypass Android Auto's unsupported video category.
+ */
 class MainActivity : Activity() {
-
-    private lateinit var status: TextView
+    private lateinit var web: WebView
+    private lateinit var normalContent: LinearLayout
+    private lateinit var fullscreenLayer: FrameLayout
+    private var fullscreenView: View? = null
+    private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val pad = (20 * resources.displayMetrics.density).toInt()
 
-        val col = LinearLayout(this).apply {
+        val root = FrameLayout(this)
+        normalContent = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
         }
-
-        col.addView(TextView(this).apply {
-            text = "Viettube"
-            textSize = 30f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER_HORIZONTAL
-        })
-
-        col.addView(TextView(this).apply {
-            textSize = 16f
-            setPadding(0, pad, 0, pad)
-            text = """
-                Xem YouTube và lướt web trên màn hình xe qua Android Auto (chỉ khi xe đang đỗ).
-
-                Cài đặt một lần:
-                1. Cấp quyền đọc tốc độ xe (nút bên dưới) để ứng dụng tự dừng video khi xe chạy.
-                2. Mở ứng dụng Android Auto trên điện thoại → chạm 10 lần vào "Phiên bản" để bật chế độ nhà phát triển.
-                3. Bấm ⋮ góc trên → Cài đặt nhà phát triển → bật "Unknown sources".
-                4. Cắm điện thoại vào xe → Viettube sẽ hiện trong danh sách ứng dụng.
-
-                Trên xe:
-                • Chạm để bấm, vuốt để cuộn.
-                • ◀ quay lại · 🏠 về YouTube · 🔍 tìm kiếm / nhập địa chỉ web · ⟳ tải lại
-                • ＋ / － phóng to, thu nhỏ trang.
-            """.trimIndent()
-        })
-
-        col.addView(Button(this).apply {
-            text = "Đăng nhập tài khoản YouTube"
-            setOnClickListener { startActivity(Intent(this@MainActivity, LoginActivity::class.java)) }
-        })
-
-        col.addView(Button(this).apply {
-            text = "Cấp quyền đọc tốc độ xe"
-            setOnClickListener { requestPermissions(arrayOf(SPEED_PERMISSION), 1) }
-        })
-
-        status = TextView(this).apply {
-            textSize = 15f
-            setPadding(0, pad, 0, 0)
+        val toolbar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        col.addView(status)
+        toolbar.addView(button("◀") { goBackInBrowser() }, weightedButton())
+        toolbar.addView(button("YouTube") { web.loadUrl(WebSetup.HOME) }, weightedButton())
+        toolbar.addView(button("↻") { web.reload() }, weightedButton())
+        toolbar.addView(button("Mở YT") { openInYouTubeApp() }, weightedButton())
+        normalContent.addView(toolbar, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
 
-        setContentView(ScrollView(this).apply { addView(col) })
+        web = WebView(this)
+        WebSetup.configure(web)
+        web.settings.mediaPlaybackRequiresUserGesture = true
+        web.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val scheme = request?.url?.scheme?.lowercase() ?: return false
+                return scheme != "https" && scheme != "http"
+            }
+            override fun onPageFinished(view: WebView?, url: String?) {
+                if (url != null) WebSetup.saveLastUrl(this@MainActivity, url)
+            }
+        }
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                if (view == null || fullscreenView != null) {
+                    callback?.onCustomViewHidden()
+                    return
+                }
+                fullscreenView = view
+                fullscreenCallback = callback
+                normalContent.visibility = View.GONE
+                fullscreenLayer.visibility = View.VISIBLE
+                fullscreenLayer.addView(view, FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                ))
+            }
+            override fun onHideCustomView() {
+                exitFullscreen(notifyWebView = false)
+            }
+        }
+        normalContent.addView(web, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
+        ))
+        root.addView(normalContent, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        fullscreenLayer = FrameLayout(this).apply { visibility = View.GONE }
+        root.addView(fullscreenLayer, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        setContentView(root)
+        if (savedInstanceState != null) {
+            if (web.restoreState(savedInstanceState) == null) web.loadUrl(WebSetup.HOME)
+        } else {
+            web.loadUrl(WebSetup.lastUrl(this))
+        }
+    }
+
+    private fun weightedButton() =
+        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+
+    private fun button(label: String, click: () -> Unit) = Button(this).apply {
+        text = label
+        textSize = 12f
+        isAllCaps = false
+        setOnClickListener { click() }
+    }
+
+    private fun goBackInBrowser() {
+        if (fullscreenView != null) exitFullscreen(notifyWebView = true)
+        else if (web.canGoBack()) web.goBack()
+        else finish()
+    }
+
+    private fun openInYouTubeApp() {
+        val url = web.url ?: WebSetup.HOME
+        val launch = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            setPackage("com.google.android.youtube")
+        }
+        try {
+            startActivity(launch)
+        } catch (_: ActivityNotFoundException) {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }
+    }
+
+    private fun exitFullscreen(notifyWebView: Boolean) {
+        if (fullscreenView == null) return
+        fullscreenLayer.removeAllViews()
+        fullscreenLayer.visibility = View.GONE
+        normalContent.visibility = View.VISIBLE
+        fullscreenView = null
+        val callback = fullscreenCallback
+        fullscreenCallback = null
+        if (notifyWebView) callback?.onCustomViewHidden()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() = goBackInBrowser()
+
+    override fun onPause() {
+        if (::web.isInitialized) {
+            web.evaluateJavascript(
+                "document.querySelectorAll('video,audio').forEach(function(m){m.pause()})",
+                null
+            )
+            web.onPause()
+        }
+        super.onPause()
     }
 
     override fun onResume() {
         super.onResume()
-        updateStatus()
+        if (::web.isInitialized) web.onResume()
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        updateStatus()
+    override fun onSaveInstanceState(outState: Bundle) {
+        if (::web.isInitialized) web.saveState(outState)
+        super.onSaveInstanceState(outState)
     }
 
-    private fun updateStatus() {
-        val ok = checkSelfPermission(SPEED_PERMISSION) == PackageManager.PERMISSION_GRANTED
-        status.text = if (ok) "✅ Đã cấp quyền tốc độ xe — video sẽ tự dừng khi xe chạy."
-        else "⚠️ Chưa cấp quyền tốc độ xe."
-    }
-
-    companion object {
-        const val SPEED_PERMISSION = "com.google.android.gms.permission.CAR_SPEED"
+    override fun onDestroy() {
+        if (::fullscreenLayer.isInitialized) exitFullscreen(notifyWebView = true)
+        if (::web.isInitialized) {
+            web.stopLoading()
+            (web.parent as? ViewGroup)?.removeView(web)
+            web.destroy()
+        }
+        super.onDestroy()
     }
 }
