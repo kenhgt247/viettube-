@@ -1,17 +1,45 @@
-# Viettube
+# VietTube — parked-video prototype (experimental)
 
-Ứng dụng Android Auto cá nhân: xem YouTube và lướt web trên màn hình xe **khi xe đang đỗ**.
-Video tự dừng và màn hình bị che khi xe chạy (cần cấp quyền tốc độ xe).
+**This is a test branch. `main` and its latest release are unchanged.**
 
-## Tải về
-Mỗi lần code thay đổi, GitHub tự đóng gói file mới tại mục **Releases → latest → viettube.apk**.
+## What works in this prototype
+- The phone launcher opens an adaptive WebView at `https://m.youtube.com/`.
+- Back, home, refresh and open-in-YouTube-app controls.
+- Full-screen video support through WebChromeClient.
+- Video pauses when the Activity loses focus.
+- The manifest describes the app as video and declares a parked-app `CAR_LAUNCHER` Activity, **not** a navigation app.
 
-## Cài đặt
-1. Tải `viettube.apk` về điện thoại, mở file và cho phép cài ứng dụng ngoài.
-2. Mở Viettube trên điện thoại → bấm **Cấp quyền đọc tốc độ xe** và (nếu muốn) **Đăng nhập YouTube**.
-3. Mở **Android Auto** → chạm 10 lần vào "Phiên bản" → ⋮ → **Cài đặt nhà phát triển** → bật **Unknown sources**.
-4. Cắm điện thoại vào xe, mở Viettube trong danh sách ứng dụng.
+## Important Android Auto limitation (verified Nov 2026)
+**Android Auto still does not generally accept video parked apps.** Declaring
+`CAR_LAUNCHER` does **not** make this app appear in the Android Auto app list.
+Android 17 on the phone alone does not make the feature available: Google's
+vehicle compatibility/rollout and app approval remain decisive. The current
+Google documentation states games are the only supported Android Auto parked
+app category. Do not disguise this app as a navigation, weather or game app.
 
-## Sử dụng trên xe
-- Chạm để bấm, vuốt để cuộn, chụm hai ngón để phóng to.
-- ◀ quay lại · 🏠 YouTube · 🔍 tìm kiếm / nhập địa chỉ web · ⟳ tải lại · ＋/－ phóng to, thu nhỏ.
+References:
+- https://developer.android.com/training/cars/parked/auto
+- https://developer.android.com/training/cars
+- https://android-developers.googleblog.com/2026/05/android-for-cars-unifying-platforms-premium-experiences.html
+
+## Test
+1. Check out `feature/viettube-parked-video`.
+2. Build with Android Studio or `gradle :app:assembleDebug` with Android SDK installed.
+3. Install the debug APK on an Android 17 phone and test YouTube playback
+   in the phone UI *while parked*. Embedded YouTube/Google sign-in may be
+   restricted by Google; the "Mở YT" button opens the official app.
+4. Open Android Auto > Customize launcher. **It is expected not to show
+   VietTube on hosts without Google video parked-app support**.
+5. If Google later enables support, re-check eligibility, vehicle parked
+   state enforcement, Play distribution, app quality, and actual hardware.
+
+## Safety
+- This prototype doesn't unlock Android Auto video during driving.
+- It contains no bypass, spoofed navigation UI, or speed-permission hack.
+- Android Auto parked-app support, when available, must rely on the platform's
+  authoritative vehicle state and its own blocking of video while moving.
+
+## Note about signing
+The legacy project contains a publicly committed app keystore and credentials.
+Do **not** rely on that key for a production release. Rotate signing material
+and move secrets out of Git before production distribution.
