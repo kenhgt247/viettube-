@@ -1,46 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
-    <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
-    <uses-permission android:name="com.google.android.gms.permission.CAR_SPEED" />
 
+    <!-- Parked video apps use an Activity, not a navigation CarAppService. -->
     <application
-        android:label="Viettube"
+        android:label="VietTube"
         android:icon="@drawable/ic_launcher"
         android:roundIcon="@drawable/ic_launcher"
-        android:theme="@android:style/Theme.Material.Light.DarkActionBar"
-        android:usesCleartextTraffic="true">
+        android:appCategory="video"
+        android:hardwareAccelerated="true"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:usesCleartextTraffic="false">
 
-        <meta-data
-            android:name="com.google.android.gms.car.application"
-            android:resource="@xml/automotive_app_desc" />
-        <meta-data
-            android:name="androidx.car.app.minCarApiLevel"
-            android:value="1" />
-
+        <!-- The CAR_LAUNCHER intent prepares this Activity for *eligible* parked-app
+             hosts. As of Nov 2026, Android Auto does not generally support video
+             apps. This intent alone cannot make the app appear in its launcher. -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:resizeableActivity="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.CAR_LAUNCHER" />
+            </intent-filter>
         </activity>
 
+        <!-- Legacy login screen retained for compatibility; Google may reject
+             sign-in in embedded WebViews. Use external YouTube app if needed. -->
         <activity
             android:name=".LoginActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />
-
-        <service
-            android:name=".car.ViettubeCarService"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="androidx.car.app.CarAppService" />
-                <category android:name="androidx.car.app.category.NAVIGATION" />
-            </intent-filter>
-        </service>
     </application>
 </manifest>
