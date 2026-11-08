@@ -1,4 +1,4 @@
-name: Build parked-video beta (no stable release)
+name: Build and publish VietTube parked-video beta APK
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -21,24 +21,36 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Check parked-video AndroidManifest
+      - name: Validate parked-video manifest
         run: |
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
-          m = ET.parse('app/src/main/AndroidManifest.xml').getroot()
-          ns='{http://schemas.android.com/apk/res/android}'
-          app=m.find('application')
-          assert app.attrib.get(ns+'appCategory') == 'video'
-          activity=app.find('activity')
-          categories=[c.attrib[ns+'name'] for i in activity.findall('intent-filter') for c in i.findall('category')]
+          ns = '{http://schemas.android.com/apk/res/android}'
+          app = ET.parse('app/src/main/AndroidManifest.xml').getroot().find('application')
+          assert app is not None and app.get(ns + 'appCategory') == 'video'
+          assert not app.findall('service')
+          categories = [c.get(ns + 'name') for a in app.findall('activity') for f in a.findall('intent-filter') for c in f.findall('category')]
           assert 'android.intent.category.CAR_LAUNCHER' in categories
-          assert not app.findall('service'), 'Navigation service should not be exposed'
-          print('Parked video declaration: OK (not proof of Android Auto eligibility)')
+          print('Video Activity declaration valid; Android Auto visibility not guaranteed')
           PY
-      - name: Build debug APK
+      - name: Build Android 17-compatible beta APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
-      - name: Upload beta APK as run artifact (never overwrites latest)
+      - name: Prepare artifact
+        run: cp app/build/outputs/apk/debug/app-debug.apk viettube-beta.apk
+      - name: Save beta build artifact
         uses: actions/upload-artifact@v4
         with:
           name: viettube-parked-video-beta
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: viettube-beta.apk
+      - name: Publish public beta APK without changing latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view viettube-parked-beta > /dev/null 2>&1; then
+            gh release upload viettube-parked-beta viettube-beta.apk --clobber
+          else
+            gh release create viettube-parked-beta viettube-beta.apk \
+              --title 'VietTube — parked-video beta' \
+              --notes 'Beta APK for phone testing. Does not guarantee YouTube appears on Android Auto. Video only while parked. Installs as vn.viettube.app.beta.' \
+              --target "$GITHUB_SHA" --prerelease
+          fi
