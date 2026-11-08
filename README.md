@@ -25,7 +25,7 @@ References:
 ## Test
 1. Check out `feature/viettube-parked-video`.
 2. Build with Android Studio or `gradle :app:assembleDebug` with Android SDK installed.
-3. Install the debug APK on an Android 17 phone and test YouTube playback
+3. Install the debug APK (package `vn.viettube.app.beta`, installed separately from the original VietTube) on an Android 17 phone and test YouTube playback
    in the phone UI *while parked*. Embedded YouTube/Google sign-in may be
    restricted by Google; the "Mở YT" button opens the official app.
 4. Open Android Auto > Customize launcher. **It is expected not to show
