@@ -1,0 +1,60 @@
+name: Build VietTube Cast test APK
+
+on:
+  push:
+    branches:
+      - feature/viettube-weblink-cast
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Verify phone-only WebLink Cast manifest
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          ns = '{http://schemas.android.com/apk/res/android}'
+          root = ET.parse('app/src/main/AndroidManifest.xml').getroot()
+          app = root.find('application')
+          assert app is not None
+          assert not app.findall('service'), 'CarAppService must not be registered'
+          cats = [c.get(ns+'name') for a in app.findall('activity')
+                  for f in a.findall('intent-filter')
+                  for c in f.findall('category')]
+          assert 'android.intent.category.LAUNCHER' in cats
+          assert 'android.intent.category.CAR_LAUNCHER' not in cats
+          print('Phone-only Cast app: manifest OK; no SDK/vehicle approval implied.')
+          PY
+      - name: Assemble debug APK
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk viettube-cast.apk
+      - name: Save artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: viettube-cast-beta
+          path: viettube-cast.apk
+      - name: Publish isolated pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view viettube-cast-beta >/dev/null 2>&1; then
+            gh release upload viettube-cast-beta viettube-cast.apk --clobber
+          else
+            gh release create viettube-cast-beta viettube-cast.apk \
+              --title 'VietTube Cast - WebLink test' \
+              --notes 'Android phone app to test via WebLink Host Cast. Does not install directly in the WebLink launcher and does not bypass vehicle safety limits.' \
+              --target "$GITHUB_SHA" --prerelease
+          fi
