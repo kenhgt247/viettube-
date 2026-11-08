@@ -2,9 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Parked video apps use an Activity, not a navigation CarAppService. -->
+    <!-- WebLink Cast mirrors this regular phone Activity when supported by WebLink Host. -->
     <application
-        android:label="VietTube"
+        android:label="VietTube Cast"
         android:icon="@drawable/ic_launcher"
         android:roundIcon="@drawable/ic_launcher"
         android:appCategory="video"
@@ -12,9 +12,7 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
 
-        <!-- The CAR_LAUNCHER intent prepares this Activity for *eligible* parked-app
-             hosts. As of Nov 2026, Android Auto does not generally support video
-             apps. This intent alone cannot make the app appear in its launcher. -->
+        <!-- This is a phone Activity. No unofficial Android Auto or WebLink registration. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -24,11 +22,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.CAR_LAUNCHER" />
-            </intent-filter>
-        </activity>
+            </activity>
 
         <!-- Legacy login screen retained for compatibility; Google may reject
              sign-in in embedded WebViews. Use external YouTube app if needed. -->
