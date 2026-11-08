@@ -14,30 +14,19 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = buildNumber
-        versionName = "1.1.$buildNumber"
-    }
-
-    // Legacy signing retained for local beta updates ONLY.
-    // The keystore is publicly committed and MUST NOT be used for production.
-    signingConfigs {
-        create("viettube") {
-            storeFile = file("viettube.keystore")
-            storePassword = "viettube"
-            keyAlias = "viettube"
-            keyPassword = "viettube"
-        }
+        versionName = "1.2.$buildNumber"
     }
 
     buildTypes {
-        getByName("release") {
-            isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("viettube")
-        }
         getByName("debug") {
-            // Install beta beside the original app; never replace a working APK.
-            applicationIdSuffix = ".beta"
-            versionNameSuffix = "-beta"
-            signingConfig = signingConfigs.getByName("viettube")
+            // Independent package; safe to install next to stable and parked-video beta.
+            applicationIdSuffix = ".weblink"
+            versionNameSuffix = "-weblink-beta"
+        }
+        getByName("release") {
+            // Deliberately unsigned: rotate the previously exposed signing key
+            // before any production release. This branch distributes debug only.
+            isMinifyEnabled = false
         }
     }
 
@@ -47,10 +36,6 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
-    }
-    lint {
-        checkReleaseBuilds = false
-        abortOnError = false
     }
 }
 
