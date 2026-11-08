@@ -14,10 +14,11 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = buildNumber
-        versionName = "1.0.$buildNumber"
+        versionName = "1.1.$buildNumber"
     }
 
-    // Fixed key so each new build installs over the old one.
+    // Legacy signing retained for local beta updates ONLY.
+    // The keystore is publicly committed and MUST NOT be used for production.
     signingConfigs {
         create("viettube") {
             storeFile = file("viettube.keystore")
@@ -51,7 +52,5 @@ android {
 }
 
 dependencies {
-    implementation("androidx.car.app:app:1.4.0")
-    implementation("androidx.car.app:app-projected:1.4.0")
     implementation("androidx.core:core-ktx:1.13.1")
 }
