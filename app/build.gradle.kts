@@ -34,6 +34,9 @@ android {
             signingConfig = signingConfigs.getByName("viettube")
         }
         getByName("debug") {
+            // Install beta beside the original app; never replace a working APK.
+            applicationIdSuffix = ".beta"
+            versionNameSuffix = "-beta"
             signingConfig = signingConfigs.getByName("viettube")
         }
     }
